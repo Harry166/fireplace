@@ -38,6 +38,25 @@ class Fire {
         this.explodingUpgradeAlpha = 0;
         this.explodingUpgradePurchased = false;
         
+        // More exploding power upgrade
+        this.moreExplodingUpgradeVisible = false;
+        this.moreExplodingUpgradeFading = false;
+        this.moreExplodingUpgradeAlpha = 0;
+        this.moreExplodingUpgradePurchased = false;
+        
+        // Burner upgrade
+        this.burnerUpgradeVisible = false;
+        this.burnerUpgradeFading = false;
+        this.burnerUpgradeAlpha = 0;
+        this.burnerUpgradePurchased = false;
+        this.totalKindlerGenerated = 0;
+        this.burners = 0;
+        
+        // Burner properties
+        this.burnerProgress = 0;
+        this.lastBurnerTime = Date.now();
+        this.burnerCost = 1200;
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.initFlames();
@@ -83,6 +102,18 @@ class Fire {
                 position++;
             }
 
+            // More Exploding upgrade
+            if (this.moreExplodingUpgradeVisible && !this.moreExplodingUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 700) {
+                        this.fireAmount -= 700;
+                        this.moreExplodingUpgradeFading = true;
+                        this.clickPower += 3;
+                    }
+                }
+                position++;
+            }
+
             // Power upgrade
             if (this.powerUpgradeVisible && !this.powerUpgradeFading) {
                 if (this.isClickInBox(x, y, 60 + (position * 120))) {
@@ -90,6 +121,18 @@ class Fire {
                         this.fireAmount -= 500;
                         this.powerUpgradeFading = true;
                         this.powerMultiplier = 2;
+                    }
+                }
+                position++;
+            }
+
+            // Burner upgrade
+            if (this.burnerUpgradeVisible && !this.burnerUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 1000) {
+                        this.fireAmount -= 1000;
+                        this.burnerUpgradeFading = true;
+                        this.burners = 1;
                     }
                 }
             }
@@ -100,6 +143,15 @@ class Fire {
                     this.fireAmount -= this.kindlerCost;
                     this.kindlers++;
                     this.kindlerCost += 15;
+                }
+            }
+
+            // Burner box
+            if (this.burnerUpgradePurchased && this.isClickInBurnerArea(x, y)) {
+                if (this.fireAmount >= this.burnerCost) {
+                    this.fireAmount -= this.burnerCost;
+                    this.burners++;
+                    this.burnerCost += 35;
                 }
             }
         });
@@ -129,6 +181,18 @@ class Fire {
         const boxHeight = 100;
 
         // Check if click is anywhere in the kindler box
+        return x >= boxX && x <= boxX + boxWidth && 
+               y >= boxY && y <= boxY + boxHeight;
+    }
+
+    isClickInBurnerArea(x, y) {
+        const margin = 20;
+        const rightMargin = 340;
+        const boxX = margin;
+        const boxY = 180;
+        const boxWidth = this.canvas.width - rightMargin - margin;
+        const boxHeight = 100;
+
         return x >= boxX && x <= boxX + boxWidth && 
                y >= boxY && y <= boxY + boxHeight;
     }
@@ -396,6 +460,61 @@ class Fire {
         this.ctx.restore();
     }
 
+    drawMoreExplodingUpgrade(position) {
+        if (!this.moreExplodingUpgradeVisible) {
+            this.moreExplodingUpgradeVisible = true;
+        }
+
+        if (this.moreExplodingUpgradeFading) {
+            this.moreExplodingUpgradeAlpha = Math.max(0, this.moreExplodingUpgradeAlpha - 0.1);
+            if (this.moreExplodingUpgradeAlpha <= 0) {
+                this.moreExplodingUpgradeVisible = false;
+                this.moreExplodingUpgradeFading = false;
+                this.moreExplodingUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.moreExplodingUpgradeAlpha = Math.min(1, this.moreExplodingUpgradeAlpha + 0.1);
+        }
+
+        this.ctx.save();
+        this.ctx.globalAlpha = this.moreExplodingUpgradeAlpha;
+
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120);
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('More Exploding Power', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('Add +3 fire per click', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 700', x + 10, y + 90);
+
+        this.ctx.restore();
+    }
+
     drawKindlerBox() {
         if (!this.upgradePurchased) return;
 
@@ -449,6 +568,114 @@ class Fire {
         this.ctx.restore();
     }
 
+    drawBurnerBox() {
+        if (!this.burnerUpgradePurchased) return;
+
+        this.ctx.save();
+
+        const margin = 20;
+        const rightMargin = 340;
+        const x = margin;
+        const y = 180; // Position below kindler box
+        const width = this.canvas.width - rightMargin - margin;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Burner count and fire per second
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.fillText(
+            `${this.burners} ${this.burners === 1 ? 'burner' : 'burners'} (${this.burners * 5} fire/sec)`, 
+            x + 10, 
+            y + 25
+        );
+
+        // Progress bar background
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        this.ctx.fillRect(x + 10, y + 35, width - 20, 10);
+
+        // Progress bar fill
+        this.ctx.fillStyle = '#ff6600';
+        this.ctx.fillRect(x + 10, y + 35, (width - 20) * this.burnerProgress, 10);
+
+        // Buy button
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = '16px Arial';
+        const buyText = `Buy burner (${this.burnerCost} fire)`;
+        this.ctx.fillText(buyText, x + 10, y + 70);
+
+        this.ctx.restore();
+    }
+
+    drawBurnerUpgrade(position) {
+        if (!this.burnerUpgradeVisible) {
+            this.burnerUpgradeVisible = true;
+        }
+
+        if (this.burnerUpgradeFading) {
+            this.burnerUpgradeAlpha = Math.max(0, this.burnerUpgradeAlpha - 0.1);
+            if (this.burnerUpgradeAlpha <= 0) {
+                this.burnerUpgradeVisible = false;
+                this.burnerUpgradeFading = false;
+                this.burnerUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.burnerUpgradeAlpha = Math.min(1, this.burnerUpgradeAlpha + 0.1);
+        }
+
+        this.ctx.save();
+        this.ctx.globalAlpha = this.burnerUpgradeAlpha;
+
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120);
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('Burner', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('Generates 5 fire per second', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 1000', x + 10, y + 90);
+
+        this.ctx.restore();
+    }
+
     drawUpgrades() {
         let position = 0;
         
@@ -464,18 +691,33 @@ class Fire {
             position++;
         }
         
+        // More Exploding upgrade
+        if (!this.moreExplodingUpgradePurchased && this.clickCount >= 100) {
+            this.drawMoreExplodingUpgrade(position);
+            position++;
+        }
+        
         // Power upgrade
         if (this.upgradePurchased && !this.powerUpgradePurchased && this.kindlers >= 3) {
             this.drawPowerUpgrade(position);
+            position++;
+        }
+
+        // Burner upgrade
+        if (!this.burnerUpgradePurchased && this.totalKindlerGenerated >= 250) {
+            this.drawBurnerUpgrade(position);
         }
     }
 
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Update kindler progress
+        // Update kindler and burner progress
         if (this.upgradePurchased) {
             this.updateKindlerProgress();
+        }
+        if (this.burnerUpgradePurchased) {
+            this.updateBurnerProgress();
         }
 
         // Draw the base glow first
@@ -587,6 +829,7 @@ class Fire {
             this.drawUpgrades();
         } else {
             this.drawKindlerBox();
+            this.drawBurnerBox();
             this.drawUpgrades();
         }
         this.drawFloatingTexts();
@@ -635,12 +878,30 @@ class Fire {
         const interval = 1000 / this.kindlers;
         
         if (deltaTime >= interval) {
-            this.fireAmount += 1 * this.powerMultiplier; // Apply power multiplier
+            const fireGenerated = 1 * this.powerMultiplier;
+            this.fireAmount += fireGenerated;
+            this.totalKindlerGenerated += fireGenerated;
+            this.fireAmount += this.burners * 5; // Add burner generation
             this.kindlerProgress = 0;
             this.lastKindlerTime = currentTime;
-            this.firePerSecond = this.kindlers * this.powerMultiplier; // Update fire per second rate
+            this.firePerSecond = (this.kindlers * this.powerMultiplier) + (this.burners * 5);
         } else {
             this.kindlerProgress = deltaTime / interval;
+        }
+    }
+
+    updateBurnerProgress() {
+        if (this.burners === 0) return;
+        
+        const currentTime = Date.now();
+        const deltaTime = currentTime - this.lastBurnerTime;
+        
+        if (deltaTime >= 200) { // 1000ms / 5 = 200ms per fire
+            this.fireAmount += 1 * this.burners;
+            this.burnerProgress = 0;
+            this.lastBurnerTime = currentTime;
+        } else {
+            this.burnerProgress = deltaTime / 200;
         }
     }
 }
