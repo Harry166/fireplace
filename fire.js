@@ -21,6 +21,23 @@ class Fire {
         this.kindlerButtonWidth = 200; // Width of clickable area
         this.firePerSecond = 0; // Track fire generation rate
         
+        // New power upgrade properties
+        this.powerUpgradeVisible = false;
+        this.powerUpgradeFading = false;
+        this.powerUpgradeAlpha = 0;
+        this.powerUpgradePurchased = false;
+        this.powerMultiplier = 1; // Multiplier for fire generation
+        
+        // Click tracking and power
+        this.clickCount = 0;
+        this.clickPower = 1;
+        
+        // New exploding power upgrade
+        this.explodingUpgradeVisible = false;
+        this.explodingUpgradeFading = false;
+        this.explodingUpgradeAlpha = 0;
+        this.explodingUpgradePurchased = false;
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.initFlames();
@@ -35,20 +52,49 @@ class Fire {
             const y = event.clientY - rect.top;
             
             if (this.isClickInFireArea(x, y)) {
-                this.fireAmount++;
+                this.fireAmount += this.clickPower;
+                this.clickCount++;
                 this.addFloatingText(x, y);
             }
             
-            // Check for upgrade click
-            if (this.upgradeVisible && !this.upgradeFading && this.isClickInUpgradeArea(x, y)) {
-                if (this.fireAmount >= 20) {
-                    this.fireAmount -= 20;
-                    this.upgradeFading = true;
-                    this.kindlers = 1;
+            let position = 0;
+            
+            // First upgrade (Kindler)
+            if (!this.upgradePurchased && this.upgradeVisible && !this.upgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 20) {
+                        this.fireAmount -= 20;
+                        this.upgradeFading = true;
+                        this.kindlers = 1;
+                    }
+                }
+                position++;
+            }
+
+            // Exploding upgrade
+            if (this.explodingUpgradeVisible && !this.explodingUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 200) {
+                        this.fireAmount -= 200;
+                        this.explodingUpgradeFading = true;
+                        this.clickPower += 2;
+                    }
+                }
+                position++;
+            }
+
+            // Power upgrade
+            if (this.powerUpgradeVisible && !this.powerUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 500) {
+                        this.fireAmount -= 500;
+                        this.powerUpgradeFading = true;
+                        this.powerMultiplier = 2;
+                    }
                 }
             }
 
-            // Check for buy kindler click
+            // Kindler box
             if (this.upgradePurchased && this.isClickInBuyKindlerArea(x, y)) {
                 if (this.fireAmount >= this.kindlerCost) {
                     this.fireAmount -= this.kindlerCost;
@@ -68,11 +114,10 @@ class Fire {
         return y > fireTop && y <= this.canvas.height;
     }
 
-    isClickInUpgradeArea(x, y) {
-        const upgradeX = this.canvas.width - 320;
-        const upgradeY = 60;
-        return x >= upgradeX && x <= upgradeX + 250 && 
-               y >= upgradeY && y <= upgradeY + 100;
+    isClickInBox(x, y, boxY) {
+        const boxX = this.canvas.width - 320;
+        return x >= boxX && x <= boxX + 250 && 
+               y >= boxY && y <= boxY + 100;
     }
 
     isClickInBuyKindlerArea(x, y) {
@@ -89,33 +134,35 @@ class Fire {
     }
 
     addFloatingText(x, y) {
+        // Update text to show actual amount of fire gained per click
+        const text = `+${this.clickPower}`;
+        
         this.floatingTexts.push({
             x: x,
             y: y,
             alpha: 1,
-            life: 1 // Will decrease over time
+            text: text
         });
     }
 
     drawFloatingTexts() {
         this.ctx.save();
         
-        this.floatingTexts.forEach((text, index) => {
-            this.ctx.font = 'bold 24px Arial';
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${text.alpha})`;
+        this.floatingTexts = this.floatingTexts.filter(text => {
+            text.y -= 1;
+            text.alpha -= 0.02;
+            
+            if (text.alpha <= 0) return false;
+            
+            this.ctx.globalAlpha = text.alpha;
+            this.ctx.fillStyle = '#FFFFFF';
             this.ctx.shadowColor = '#ff6600';
             this.ctx.shadowBlur = 10;
+            this.ctx.font = '20px Arial';
+            this.ctx.fillText(text.text, text.x, text.y);
             
-            this.ctx.fillText('+1', text.x, text.y);
-            
-            // Update position and life
-            text.y -= 2; // Move up
-            text.alpha = text.life; // Fade based on life
-            text.life -= 0.02; // Decrease life
+            return true;
         });
-        
-        // Remove dead texts
-        this.floatingTexts = this.floatingTexts.filter(text => text.life > 0);
         
         this.ctx.restore();
     }
@@ -170,7 +217,7 @@ class Fire {
         this.ctx.restore();
     }
 
-    drawUpgrade() {
+    drawUpgrade(position) {
         // Only show upgrade if we have enough fire and haven't purchased it
         if (!this.upgradeVisible && this.fireAmount >= 20 && !this.upgradePurchased) {
             this.upgradeVisible = true;
@@ -197,7 +244,7 @@ class Fire {
 
         // Draw upgrade box
         const x = this.canvas.width - 320;
-        const y = 60;
+        const y = 60 + (position * 120);
         const width = 250;
         const height = 100;
 
@@ -232,19 +279,121 @@ class Fire {
         this.ctx.restore();
     }
 
-    updateKindlerProgress() {
-        const currentTime = Date.now();
-        const deltaTime = currentTime - this.lastKindlerTime;
-        const interval = 1000 / this.kindlers; // Interval gets shorter with more kindlers
-        
-        if (deltaTime >= interval) {
-            this.fireAmount += 1; // Add 1 fire at each interval
-            this.kindlerProgress = 0;
-            this.lastKindlerTime = currentTime;
-            this.firePerSecond = this.kindlers; // Update fire per second rate
-        } else {
-            this.kindlerProgress = deltaTime / interval;
+    drawPowerUpgrade(position) {
+        // Only show when we have 3 or more kindlers and haven't purchased it
+        if (!this.powerUpgradeVisible && this.kindlers >= 3 && !this.powerUpgradePurchased) {
+            this.powerUpgradeVisible = true;
         }
+
+        if (!this.powerUpgradeVisible) return;
+
+        this.ctx.save();
+        
+        // Handle fade animation
+        if (this.powerUpgradeFading) {
+            this.powerUpgradeAlpha = Math.max(0, this.powerUpgradeAlpha - 0.1);
+            if (this.powerUpgradeAlpha <= 0) {
+                this.powerUpgradeVisible = false;
+                this.powerUpgradeFading = false;
+                this.powerUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.powerUpgradeAlpha = Math.min(1, this.powerUpgradeAlpha + 0.1);
+        }
+        
+        this.ctx.globalAlpha = this.powerUpgradeAlpha;
+
+        // Draw upgrade box with position offset
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120);
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('Kindler Power', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('x2 fire per second', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 500', x + 10, y + 90);
+
+        this.ctx.restore();
+    }
+
+    drawExplodingUpgrade(position) {
+        if (!this.explodingUpgradeVisible) {
+            this.explodingUpgradeVisible = true;
+        }
+
+        if (this.explodingUpgradeFading) {
+            this.explodingUpgradeAlpha = Math.max(0, this.explodingUpgradeAlpha - 0.1);
+            if (this.explodingUpgradeAlpha <= 0) {
+                this.explodingUpgradeVisible = false;
+                this.explodingUpgradeFading = false;
+                this.explodingUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.explodingUpgradeAlpha = Math.min(1, this.explodingUpgradeAlpha + 0.1);
+        }
+
+        this.ctx.save();
+        this.ctx.globalAlpha = this.explodingUpgradeAlpha;
+
+        // Position based on order
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120); // 120 = box height + spacing
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('Exploding Power', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('+2 fire per click', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 200', x + 10, y + 90);
+
+        this.ctx.restore();
     }
 
     drawKindlerBox() {
@@ -298,6 +447,27 @@ class Fire {
         this.ctx.fillText(buyText, x + 10, y + 70);
 
         this.ctx.restore();
+    }
+
+    drawUpgrades() {
+        let position = 0;
+        
+        // First upgrade (Kindler)
+        if (!this.upgradePurchased) {
+            this.drawUpgrade(position);
+            position++;
+        }
+        
+        // Exploding upgrade
+        if (!this.explodingUpgradePurchased && this.clickCount >= 50) {
+            this.drawExplodingUpgrade(position);
+            position++;
+        }
+        
+        // Power upgrade
+        if (this.upgradePurchased && !this.powerUpgradePurchased && this.kindlers >= 3) {
+            this.drawPowerUpgrade(position);
+        }
     }
 
     draw() {
@@ -414,9 +584,10 @@ class Fire {
         this.drawElementsTitle();
         this.drawCounter();
         if (!this.upgradePurchased) {
-            this.drawUpgrade();
+            this.drawUpgrades();
         } else {
             this.drawKindlerBox();
+            this.drawUpgrades();
         }
         this.drawFloatingTexts();
 
@@ -455,6 +626,21 @@ class Fire {
                 offset: i * 0.3,
                 speedMultiplier: Math.random() * 0.2 + 0.9
             });
+        }
+    }
+
+    updateKindlerProgress() {
+        const currentTime = Date.now();
+        const deltaTime = currentTime - this.lastKindlerTime;
+        const interval = 1000 / this.kindlers;
+        
+        if (deltaTime >= interval) {
+            this.fireAmount += 1 * this.powerMultiplier; // Apply power multiplier
+            this.kindlerProgress = 0;
+            this.lastKindlerTime = currentTime;
+            this.firePerSecond = this.kindlers * this.powerMultiplier; // Update fire per second rate
+        } else {
+            this.kindlerProgress = deltaTime / interval;
         }
     }
 }
