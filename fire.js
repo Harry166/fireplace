@@ -137,21 +137,22 @@ class Fire {
                 }
             }
 
-            // Kindler box
-            if (this.upgradePurchased && this.isClickInBuyKindlerArea(x, y)) {
-                if (this.fireAmount >= this.kindlerCost) {
-                    this.fireAmount -= this.kindlerCost;
-                    this.kindlers++;
-                    this.kindlerCost += 15;
-                }
-            }
-
-            // Burner box
+            // Handle box clicks - Check burner first since it's below kindler
             if (this.burnerUpgradePurchased && this.isClickInBurnerArea(x, y)) {
                 if (this.fireAmount >= this.burnerCost) {
                     this.fireAmount -= this.burnerCost;
                     this.burners++;
                     this.burnerCost += 35;
+                }
+                return; // Add return to prevent kindler check
+            }
+
+            // Only check kindler if we didn't click burner
+            if (this.upgradePurchased && this.isClickInBuyKindlerArea(x, y)) {
+                if (this.fireAmount >= this.kindlerCost) {
+                    this.fireAmount -= this.kindlerCost;
+                    this.kindlers++;
+                    this.kindlerCost += 15;
                 }
             }
         });
@@ -269,14 +270,23 @@ class Fire {
         this.ctx.shadowOffsetX = 0;
         this.ctx.shadowOffsetY = 0;
         
-        // Position the text - moved more to the left
-        const text = 'Elements';
-        const textMetrics = this.ctx.measureText(text);
-        const x = this.canvas.width - textMetrics.width - 120; // Increased from 40 to 120
+        // Position the Elements text
+        const elementsText = 'Elements';
+        const textMetrics = this.ctx.measureText(elementsText);
+        const x = this.canvas.width - textMetrics.width - 120;
         const y = 40;
         
-        // Draw text
-        this.ctx.fillText(text, x, y);
+        // Draw Elements text
+        this.ctx.fillText(elementsText, x, y);
+        
+        // Draw Workers text centered above worker boxes
+        const workersText = 'Workers';
+        const workersMetrics = this.ctx.measureText(workersText);
+        const margin = 20;
+        const rightMargin = 340;
+        const boxWidth = this.canvas.width - rightMargin - margin;
+        const workersX = margin + (boxWidth - workersMetrics.width) / 2;
+        this.ctx.fillText(workersText, workersX, y);
         
         this.ctx.restore();
     }
