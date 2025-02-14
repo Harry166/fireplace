@@ -57,6 +57,19 @@ class Fire {
         this.lastBurnerTime = Date.now();
         this.burnerCost = 1200;
         
+        // Inferno Clicks upgrade
+        this.infernoClicksUpgradeVisible = false;
+        this.infernoClicksUpgradeFading = false;
+        this.infernoClicksUpgradeAlpha = 0;
+        this.infernoClicksUpgradePurchased = false;
+        
+        // Burner Master upgrade
+        this.burnerMasterUpgradeVisible = false;
+        this.burnerMasterUpgradeFading = false;
+        this.burnerMasterUpgradeAlpha = 0;
+        this.burnerMasterUpgradePurchased = false;
+        this.burnerMultiplier = 1;
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.initFlames();
@@ -154,6 +167,30 @@ class Fire {
                     this.kindlers++;
                     this.kindlerCost += 15;
                 }
+            }
+
+            // Inferno Clicks upgrade
+            if (this.infernoClicksUpgradeVisible && !this.infernoClicksUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 2500) {
+                        this.fireAmount -= 2500;
+                        this.infernoClicksUpgradeFading = true;
+                        this.clickPower += 5;
+                    }
+                }
+                position++;
+            }
+
+            // Burner Master upgrade
+            if (this.burnerMasterUpgradeVisible && !this.burnerMasterUpgradeFading) {
+                if (this.isClickInBox(x, y, 60 + (position * 120))) {
+                    if (this.fireAmount >= 4000) {
+                        this.fireAmount -= 4000;
+                        this.burnerMasterUpgradeFading = true;
+                        this.burnerMultiplier = 2;
+                    }
+                }
+                position++;
             }
         });
     }
@@ -354,8 +391,7 @@ class Fire {
     }
 
     drawPowerUpgrade(position) {
-        // Only show when we have 3 or more kindlers and haven't purchased it
-        if (!this.powerUpgradeVisible && this.kindlers >= 3 && !this.powerUpgradePurchased) {
+        if (!this.powerUpgradeVisible && this.kindlers >= 3) {
             this.powerUpgradeVisible = true;
         }
 
@@ -363,7 +399,6 @@ class Fire {
 
         this.ctx.save();
         
-        // Handle fade animation
         if (this.powerUpgradeFading) {
             this.powerUpgradeAlpha = Math.max(0, this.powerUpgradeAlpha - 0.1);
             if (this.powerUpgradeAlpha <= 0) {
@@ -378,7 +413,6 @@ class Fire {
         
         this.ctx.globalAlpha = this.powerUpgradeAlpha;
 
-        // Draw upgrade box with position offset
         const x = this.canvas.width - 320;
         const y = 60 + (position * 120);
         const width = 250;
@@ -404,9 +438,9 @@ class Fire {
         this.ctx.font = 'bold 20px Arial';
         this.ctx.fillText('Kindler Power', x + 10, y + 25);
         
-        // Description
+        // Description - Updated
         this.ctx.font = '16px Arial';
-        this.ctx.fillText('x2 fire per second', x + 10, y + 50);
+        this.ctx.fillText('Doubles all kindler production', x + 10, y + 50);
         
         // Cost
         this.ctx.fillText('Cost: 500', x + 10, y + 90);
@@ -686,6 +720,122 @@ class Fire {
         this.ctx.restore();
     }
 
+    drawInfernoClicksUpgrade(position) {
+        if (!this.infernoClicksUpgradeVisible && this.clickCount >= 1000) {
+            this.infernoClicksUpgradeVisible = true;
+        }
+
+        if (!this.infernoClicksUpgradeVisible) return;
+
+        this.ctx.save();
+        
+        if (this.infernoClicksUpgradeFading) {
+            this.infernoClicksUpgradeAlpha = Math.max(0, this.infernoClicksUpgradeAlpha - 0.1);
+            if (this.infernoClicksUpgradeAlpha <= 0) {
+                this.infernoClicksUpgradeVisible = false;
+                this.infernoClicksUpgradeFading = false;
+                this.infernoClicksUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.infernoClicksUpgradeAlpha = Math.min(1, this.infernoClicksUpgradeAlpha + 0.1);
+        }
+        
+        this.ctx.globalAlpha = this.infernoClicksUpgradeAlpha;
+
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120);
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('Inferno Clicks', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('+5 fire per click', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 2500', x + 10, y + 90);
+
+        this.ctx.restore();
+    }
+
+    drawBurnerMasterUpgrade(position) {
+        if (!this.burnerMasterUpgradeVisible && this.burners >= 5) {
+            this.burnerMasterUpgradeVisible = true;
+        }
+
+        if (!this.burnerMasterUpgradeVisible) return;
+
+        this.ctx.save();
+        
+        if (this.burnerMasterUpgradeFading) {
+            this.burnerMasterUpgradeAlpha = Math.max(0, this.burnerMasterUpgradeAlpha - 0.1);
+            if (this.burnerMasterUpgradeAlpha <= 0) {
+                this.burnerMasterUpgradeVisible = false;
+                this.burnerMasterUpgradeFading = false;
+                this.burnerMasterUpgradePurchased = true;
+                return;
+            }
+        } else {
+            this.burnerMasterUpgradeAlpha = Math.min(1, this.burnerMasterUpgradeAlpha + 0.1);
+        }
+        
+        this.ctx.globalAlpha = this.burnerMasterUpgradeAlpha;
+
+        const x = this.canvas.width - 320;
+        const y = 60 + (position * 120);
+        const width = 250;
+        const height = 100;
+
+        // Glowing orange border
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 15;
+        this.ctx.strokeStyle = '#ff6600';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x, y, width, height);
+
+        // Semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x, y, width, height);
+
+        // Draw text
+        this.ctx.shadowColor = '#ff6600';
+        this.ctx.shadowBlur = 10;
+        this.ctx.fillStyle = '#FFFFFF';
+        
+        // Title
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.fillText('Burner Master', x + 10, y + 25);
+        
+        // Description
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('Doubles all burner production', x + 10, y + 50);
+        
+        // Cost
+        this.ctx.fillText('Cost: 4000', x + 10, y + 90);
+
+        this.ctx.restore();
+    }
+
     drawUpgrades() {
         let position = 0;
         
@@ -716,6 +866,18 @@ class Fire {
         // Burner upgrade
         if (!this.burnerUpgradePurchased && this.totalKindlerGenerated >= 250) {
             this.drawBurnerUpgrade(position);
+        }
+
+        // Inferno Clicks upgrade
+        if (!this.infernoClicksUpgradePurchased && this.clickCount >= 1000) {
+            this.drawInfernoClicksUpgrade(position);
+            position++;
+        }
+
+        // Burner Master upgrade
+        if (!this.burnerMasterUpgradePurchased && this.burners >= 5) {
+            this.drawBurnerMasterUpgrade(position);
+            position++;
         }
     }
 
